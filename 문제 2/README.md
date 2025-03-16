@@ -21,4 +21,97 @@
 
 ---
 
+✅ ERD
+
+```
++------------------+
+|      User         |
++------------------+
+| id (PK)           |
+| name              |
+| email (UNIQUE)    |
+| password          |
+| created_at        |
+| status (TINYINT)  | → 유저 활성화 비활성화 여부
+| deleted_at        | → soft delete를 고려
++------------------+
+        │
+        │ 1
+        │
+        │ N
++------------------+
+|      Post       |
++------------------+
+| id (PK)         |
+| title           |
+| content         |
+| created_at      |
+| user_id (FK)    | → User(id) ON DELETE SET NULL
++------------------+
+        │
+        │ N
+        │
+        │ M
++------------------+      +------------------+
+|      Post_Tag   |       |      Tag         |
++------------------+      +------------------+
+| post_id (FK)    |───N──▶| id (PK)          |
+| tag_id (FK)     |       | name (UNIQUE)    |
++------------------+      | created_at       |
+                          +------------------+
+
+
+```
+
+---
+
 ### 💡 추가질문 - 성능을 개선하기 위한 아이디어를 제시해 주세요
+
+1. `유저 스토리를 기반으로 추가한 성능 개선`
+
+- tag.name 컬럼 인덱스 추가
+- post_tag.tag_id 컬럼 인덱스 추가
+
+`예시 쿼리`
+
+```sql
+SELECT p.*
+FROM post p
+JOIN post_tag pt ON p.id = pt.post_id
+JOIN tag t ON pt.tag_id = t.id
+WHERE t.name IN ('경제', '정치')
+GROUP BY p.id
+ORDER BY p.id DESC
+LIMIT 20 OFFSET 0;
+```
+
+2. `태그 검색 + 게시글 제목 + 컨텐츠 내용 검색`
+
+- tag.name 컬럼 인덱스 추가
+- post_tag.tag_id 컬럼 인덱스 추가
+- post.title & post.content full text 인덱스 추가
+
+더 세분화된 검색을 통한 사용자 경험 향상이 가능할 것으로 판단됨
+
+`예시 쿼리`
+
+```sql
+SELECT p.*
+FROM post p
+JOIN post_tag pt ON p.id = pt.post_id
+JOIN tag t ON pt.tag_id = t.id
+WHERE t.name IN ('경제', '정치')
+AND MATCH(p.title, p.content) AGAINST ('관세')
+GROUP BY p.id
+ORDER BY p.id DESC
+LIMIT 20 OFFSET 0;
+```
+
+---
+
+`고려해볼 사항`
+
+- post_tag 테이블의 복합 인덱스 (tag_id, post_id)
+
+→ 추후 post 테이블의 양이 기하급수적으로 많아진다면 인덱스의 크기 또한 증가  
+→ 성능 저하를 고려하여 해당 설계에서는 제외
